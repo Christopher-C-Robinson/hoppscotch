@@ -18,6 +18,7 @@ import { TeamRequest } from "../teams/TeamRequest"
 import { GQLError, runGQLQuery } from "./GQLClient"
 import {
   ExportAsJsonDocument,
+  ExportAsPostmanFormatDocument,
   GetCollectionChildrenIDsDocument,
   GetCollectionRequestsDocument,
   GetCollectionTitleAndDataDocument,
@@ -246,6 +247,35 @@ export const getTeamCollectionJSON = async (teamID: string) => {
   }
 
   const collections = JSON.parse(data.right.exportCollectionsToJSON)
+
+  if (!collections.length) {
+    const t = getI18n()
+
+    return E.left(t("error.no_collections_to_export"))
+  }
+
+  const hoppCollections = collections.map(teamCollectionJSONToHoppRESTColl)
+  return E.right(JSON.stringify(hoppCollections))
+}
+
+/**
+ * Get the Postman format string of all the collection of the specified team
+ * @param teamID - ID of the team
+ * @returns Either of the Postman format string of the collection or the error
+ */
+export const getTeamCollectionPostmanFormat = async (teamID: string) => {
+  const data = await runGQLQuery({
+    query: ExportAsPostmanFormatDocument,
+    variables: {
+      teamID,
+    },
+  })
+
+  if (E.isLeft(data)) {
+    return E.left(data.left.error.toString())
+  }
+
+  const collections = JSON.parse(data.right.exportCollectionsToPostmanFormat)
 
   if (!collections.length) {
     const t = getI18n()

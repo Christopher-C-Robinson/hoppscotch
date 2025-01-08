@@ -1485,4 +1485,83 @@ export class TeamCollectionService {
 
     return E.right(true);
   }
+
+  /**
+   * Generate a Postman format containing all the contents of a collection
+   *
+   * @param teamID The Team ID
+   * @param collectionID The Collection ID
+   * @returns A Postman format containing all the contents of a collection
+   */
+  async exportCollectionToPostmanFormat(
+    teamID: string,
+    collectionID: string,
+  ): Promise<E.Right<CollectionFolder> | E.Left<string>> {
+    const collection = await this.getCollection(collectionID);
+    if (E.isLeft(collection)) return E.left(TEAM_INVALID_COLL_ID);
+
+    const childrenCollection = await this.prisma.teamCollection.findMany({
+      where: {
+        teamID,
+        parentID: collectionID,
+      },
+      orderBy: {
+        orderIndex: 'asc',
+      },
+    });
+
+    const childrenCollectionObjects = [];
+    for (const coll of childrenCollection) {
+      const result = await this.exportCollectionToPostmanFormat(teamID, coll.id);
+      if (E.isLeft(result)) return E.left(result.left);
+
+      childrenCollectionObjects.push(result.right);
+    }
+
+    const requests = await this.prisma.teamRequest.findMany({
+      where: {
+        teamID,
+        collectionID,
+      },
+      orderBy: {
+        orderIndex: 'asc',
+      },
+    });
+
+    const data = transformCollectionData(collection.right.data);
+
+    const result: CollectionFolder = {
+      name: collection.right.title,
+      folders: childrenCollectionObjects,
+      requests: requests.map((x) => x.request),
+      data,
+    };
+
+    return E.right(result);
+  }
+
+  /**
+   * Generate a Postman format containing all the contents of collections and requests of a team
+   *
+   * @param teamID The Team ID
+   * @returns A Postman format containing all the contents of collections and requests of a team
+   */
+  async exportCollectionsToPostmanFormat(teamID: string) {
+    const rootCollections = await this.prisma.teamCollection.findMany({
+      where: {
+        teamID,
+        parentID: null,
+      },
+    });
+
+    const rootCollectionObjects = [];
+    for (const coll of rootCollections) {
+      const result = await this.exportCollectionToPostmanFormat(teamID, coll.id);
+      if (E.isLeft(result)) return E.left(result.left);
+
+      rootCollectionObjects.push(result.right);
+    }
+
+    return E.right(JSON.stringify(rootCollectionObjects));
+  }
 }

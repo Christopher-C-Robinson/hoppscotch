@@ -1804,3 +1804,45 @@ describe('getCollectionForCLI', () => {
   //   });
   // });
 });
+
+describe('exportCollectionsToPostmanFormat', () => {
+  test('should successfully export collections to Postman format with valid inputs', async () => {
+    mockPrisma.teamCollection.findMany.mockResolvedValueOnce([rootTeamCollection]);
+    mockPrisma.teamRequest.findMany.mockResolvedValueOnce([]);
+    mockPrisma.teamCollection.findMany.mockResolvedValueOnce([]);
+    const result = await teamCollectionService.exportCollectionsToPostmanFormat(
+      rootTeamCollection.teamID,
+    );
+    expect(result).toEqualRight(JSON.stringify([{
+      name: rootTeamCollection.title,
+      folders: [],
+      requests: [],
+      data: {},
+    }]));
+  });
+
+  test('should throw TEAM_INVALID_COLL_ID when collectionID is invalid', async () => {
+    mockPrisma.teamCollection.findUniqueOrThrow.mockRejectedValueOnce('NotFoundError');
+    const result = await teamCollectionService.exportCollectionToPostmanFormat(
+      rootTeamCollection.teamID,
+      'invalidID',
+    );
+    expect(result).toEqualLeft(TEAM_INVALID_COLL_ID);
+  });
+
+  test('should successfully export a collection to Postman format with valid inputs', async () => {
+    mockPrisma.teamCollection.findUniqueOrThrow.mockResolvedValueOnce(rootTeamCollection);
+    mockPrisma.teamRequest.findMany.mockResolvedValueOnce([]);
+    mockPrisma.teamCollection.findMany.mockResolvedValueOnce([]);
+    const result = await teamCollectionService.exportCollectionToPostmanFormat(
+      rootTeamCollection.teamID,
+      rootTeamCollection.id,
+    );
+    expect(result).toEqualRight({
+      name: rootTeamCollection.title,
+      folders: [],
+      requests: [],
+      data: {},
+    });
+  });
+});
